@@ -1,7 +1,5 @@
 package com.example.sunalert.ui
 
-import android.graphics.RenderEffect
-import android.graphics.Shader
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -16,15 +14,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
@@ -33,19 +30,25 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.navigation.NavHostController
 import com.example.sunalert.R
+import com.google.android.gms.location.FusedLocationProviderClient
 
 val poppins = FontFamily(
     Font(R.font.poppins_light, FontWeight.Light),
-    Font(R.font.poppins_semibold, FontWeight.SemiBold)
+    Font(R.font.poppins_semibold, FontWeight.SemiBold),
+    Font(R.font.poppins_bold, FontWeight.Bold)
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LandingPage() {
+fun LandingPage(
+    navController: NavHostController,
+    fusedLocationClient: FusedLocationProviderClient
+) {
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -98,7 +101,9 @@ fun LandingPage() {
             Spacer(modifier = Modifier.height(40.dp))
 
             Button(
-                onClick = {},
+                onClick = {
+                    navController.navigate("cekUV")
+                },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color.Black.copy(alpha = .5f),
                     contentColor = Color.White
@@ -150,8 +155,10 @@ fun LandingPage() {
     }
 }
 
-@Preview
-@Composable
-fun LPPreview() {
-    LandingPage()
-}
+//@Preview
+//@Composable
+//fun LPPreview() {
+//    val navController = rememberNavController()
+//    val fusedLocationClient = LocationServices.getFusedLocationProviderClient()
+//    LandingPage(navController)
+//}
