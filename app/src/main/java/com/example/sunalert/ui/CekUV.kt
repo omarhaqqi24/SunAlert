@@ -1,6 +1,7 @@
 package com.example.sunalert.ui
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -18,7 +19,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -35,7 +35,6 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -46,6 +45,56 @@ import com.example.sunalert.R
 import com.example.sunalert.UVViewModel
 import com.google.android.gms.location.FusedLocationProviderClient
 
+data class UvRiskInfo(
+    val label: String,
+    val color: Color,
+    val advice: String
+)
+
+@Composable
+fun getUvRiskInfo(uv: Double?): UvRiskInfo {
+    if (uv == null) {
+        return UvRiskInfo(
+            label = "Mencoba mengecek UV Index",
+            color = Color.White,
+            advice = "Sedang memuat data UV untuk memberikan rekomendasi yang sesuai."
+        )
+    }
+
+    return when {
+        uv <= 2.0 -> UvRiskInfo(
+            label = "Risiko bahaya rendah",
+            color = Color(0xFF4CAF50),
+            advice = "Paparan sinar UV masih rendah. Tetap gunakan kacamata hitam saat cerah dan sunscreen jika memiliki kulit sensitif."
+        )
+
+        uv <= 5.0 -> UvRiskInfo(
+            label = "Risiko bahaya sedang",
+            color = Color(0xFFFFEB3B),
+            advice = "Paparan UV cukup terasa. Usahakan berada di tempat teduh saat siang dan gunakan sunscreen SPF 30+, pakaian tertutup, serta kacamata hitam."
+        )
+
+        uv <= 7.0 -> UvRiskInfo(
+            label = "Risiko bahaya tinggi",
+            color = Color(0xFFFF9800),
+            advice = "Sinar UV cukup berbahaya. Kurangi aktivitas luar ruangan di jam terik dan gunakan pelindung lengkap seperti sunscreen, topi, dan kacamata UV."
+        )
+
+        uv <= 10.0 -> UvRiskInfo(
+            label = "Risiko bahaya sangat tinggi",
+            color = Color(0xFFF44336),
+            advice = "Paparan UV sangat kuat. Batasi waktu di bawah matahari dan selalu gunakan sunscreen, pakaian pelindung, serta kacamata UV."
+        )
+
+        else -> UvRiskInfo(
+            label = "Risiko bahaya sangat ekstrem",
+            color = Color(0xFF9C27B0),
+            advice = "Sinar UV berada pada tingkat ekstrem. Hindari paparan langsung sebisa mungkin, dan jika terpaksa keluar gunakan perlindungan penuh."
+        )
+    }
+}
+
+@SuppressLint("DefaultLocale")
 @Composable
 fun CekUVScreen(
     fusedLocationClient: FusedLocationProviderClient,
@@ -134,38 +183,64 @@ fun CekUVScreen(
             Text(
                 text = when (val uv = viewModelUV.UVIndex.value) {
                     null -> "--"
-                    else -> uv.toInt().toString()
+                    else -> String.format("%.1f", uv)
                 },
                 fontFamily = poppins,
                 fontWeight = FontWeight.Bold,
-                fontSize = 200.sp,
+                fontSize = 180.sp,
                 color = Color.White
             )
 
             Spacer(modifier = Modifier.height(5.dp))
 
+            val uvInfo = getUvRiskInfo(viewModelUV.UVIndex.value)
+
             Text(
                 textAlign = TextAlign.Center,
-                lineHeight = 28.sp,
+                fontWeight = FontWeight.SemiBold,
+                lineHeight = 24.sp,
                 text = buildAnnotatedString {
+
+//                    withStyle(style = SpanStyle(
+//                        color = Color.White,
+//                        fontSize = 16.sp
+//                    )) {
+//                        append("$uv")
+//                    }
                     withStyle(style = SpanStyle(
-                        color = Color(0xFFFDEE4B),
-                        fontWeight = FontWeight.SemiBold,
+                        color = uvInfo.color,
                         fontSize = 16.sp
                     )) {
-                        append("Sangat Tinggi\n")
+                        append(uvInfo.label)
                     }
                     withStyle(style = SpanStyle(
                         color = Color.White,
-                        fontWeight = FontWeight.SemiBold,
                         fontSize = 12.sp
                     )) {
-                        append("UV Index Saat Ini")
+                        append("\nUV Index Saat Ini")
                     }
                 }
             )
 
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White.copy(alpha = .33f), shape = RoundedCornerShape(16.dp))
+                    .padding(12.dp),
+            ) {
+                Text(
+                    text = uvInfo.advice,
+                    fontFamily = poppins,
+                    fontSize = 16.sp,
+                    lineHeight = 20.sp,
+                    textAlign = TextAlign.Justify,
+                    color = Color.White
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             Button(
                 onClick = {
