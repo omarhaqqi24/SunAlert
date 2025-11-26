@@ -2,6 +2,7 @@ package com.example.sunalert.ui
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Application
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,6 +23,10 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -39,6 +44,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.sunalert.HistoryEntity
+import com.example.sunalert.HistoryViewModel
+import com.example.sunalert.HistoryViewModelFactory
 import com.example.sunalert.LocationState
 import com.example.sunalert.LocationViewModel
 import com.example.sunalert.R
@@ -51,7 +59,6 @@ data class UvRiskInfo(
     val advice: String
 )
 
-@Composable
 fun getUvRiskInfo(uv: Double?): UvRiskInfo {
     if (uv == null) {
         return UvRiskInfo(
@@ -101,34 +108,75 @@ fun CekUVScreen(
     viewModel: LocationViewModel = viewModel(),
     viewModelUV: UVViewModel = viewModel()
 ) {
+    val context = LocalContext.current
+    val app = context.applicationContext as Application
+
+    // HistoryViewModel untuk menyimpan riwayat
+    val historyViewModel: HistoryViewModel = viewModel(
+        factory = HistoryViewModelFactory(app)
+    )
+
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
-        val context = LocalContext.current
-
         val locationPermissionLauncher = rememberLauncherForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { isGranted: Boolean ->
             if (isGranted) {
                 viewModel.startLocationFetch(fusedLocationClient)
             } else {
-                viewModel.updateLocationStateToError("Izin lokasi diperlukan untuk mealnjutkan")
+                viewModel.updateLocationStateToError("Izin lokasi diperlukan untuk melanjutkan")
             }
         }
 
+        // Minta izin lokasi saat pertama kali masuk screen
         LaunchedEffect(Unit) {
             val permission = Manifest.permission.ACCESS_FINE_LOCATION
-
             when {
-                ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED -> {
+                ContextCompat.checkSelfPermission(context, permission) ==
+                        PackageManager.PERMISSION_GRANTED -> {
                     viewModel.startLocationFetch(fusedLocationClient)
-                } else -> {
-                locationPermissionLauncher.launch(permission)
-            }
+                }
+
+                else -> {
+                    locationPermissionLauncher.launch(permission)
+                }
             }
         }
 
         val state = viewModel.locationState.value
+        val uvValue = viewModelUV.UVIndex.value
+        val address = viewModel.addressResult.value
+
+        // ========= AUTO-SAVE HISTORY =========
+        var lastSavedUv by remember { mutableStateOf<Double?>(null) }
+
+        LaunchedEffect(uvValue, state) {
+            if (uvValue != null &&
+                uvValue != lastSavedUv &&
+                state is LocationState.Success
+            ) {
+                val lat = state.location.latitude
+                val lng = state.location.longitude
+                val uvInfo = getUvRiskInfo(uvValue)
+
+                val history = HistoryEntity(
+                    timestamp = System.currentTimeMillis(),
+                    latitude = lat,
+                    longitude = lng,
+                    alamat = address,
+                    uvIndex = uvValue,
+                    kategoriRisiko = uvInfo.label,
+                    rekomendasi = uvInfo.advice,
+                    fotoUri = "",   // nanti diisi URI foto SkyCheck
+                    note = null
+                )
+
+                historyViewModel.insertHistory(history)
+                lastSavedUv = uvValue
+            }
+        }
+        // =====================================
 
         Image(
             painter = painterResource(id = R.drawable.background),
@@ -156,18 +204,17 @@ fun CekUVScreen(
                 modifier = Modifier.size(120.dp)
             )
 
-//            Spacer(modifier = Modifier.height(50.dp))
-
             Text(
                 text = when (state) {
                     is LocationState.Loading -> "Memuat Data..."
                     is LocationState.Success -> {
                         val lat = state.location.latitude
                         val lng = state.location.longitude
+                        // trigger fetch UV ketika lokasi berhasil
                         viewModelUV.fetchUV(lat, lng)
-
-                        "lat: ${state.location.latitude}, long: ${state.location.longitude}\n${viewModel.addressResult.value}"
+                        "lat: ${lat}, long: ${lng}\n$address"
                     }
+
                     is LocationState.Error -> "Gagal: ${state.message}"
                     else -> "Menunggu Izin"
                 },
@@ -181,7 +228,7 @@ fun CekUVScreen(
             Spacer(modifier = Modifier.height(10.dp))
 
             Text(
-                text = when (val uv = viewModelUV.UVIndex.value) {
+                text = when (val uv = uvValue) {
                     null -> "--"
                     else -> String.format("%.1f", uv)
                 },
@@ -193,30 +240,27 @@ fun CekUVScreen(
 
             Spacer(modifier = Modifier.height(5.dp))
 
-            val uvInfo = getUvRiskInfo(viewModelUV.UVIndex.value)
+            val uvInfo = getUvRiskInfo(uvValue)
 
             Text(
                 textAlign = TextAlign.Center,
                 fontWeight = FontWeight.SemiBold,
                 lineHeight = 24.sp,
                 text = buildAnnotatedString {
-
-//                    withStyle(style = SpanStyle(
-//                        color = Color.White,
-//                        fontSize = 16.sp
-//                    )) {
-//                        append("$uv")
-//                    }
-                    withStyle(style = SpanStyle(
-                        color = uvInfo.color,
-                        fontSize = 16.sp
-                    )) {
+                    withStyle(
+                        style = SpanStyle(
+                            color = uvInfo.color,
+                            fontSize = 16.sp
+                        )
+                    ) {
                         append(uvInfo.label)
                     }
-                    withStyle(style = SpanStyle(
-                        color = Color.White,
-                        fontSize = 12.sp
-                    )) {
+                    withStyle(
+                        style = SpanStyle(
+                            color = Color.White,
+                            fontSize = 12.sp
+                        )
+                    ) {
                         append("\nUV Index Saat Ini")
                     }
                 }
@@ -227,7 +271,10 @@ fun CekUVScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.White.copy(alpha = .33f), shape = RoundedCornerShape(16.dp))
+                    .background(
+                        Color.White.copy(alpha = .33f),
+                        shape = RoundedCornerShape(16.dp)
+                    )
                     .padding(12.dp),
             ) {
                 Text(
@@ -244,6 +291,7 @@ fun CekUVScreen(
 
             Button(
                 onClick = {
+                    // user bisa klik untuk re-check lokasi/uv
                     locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
@@ -273,9 +321,3 @@ fun CekUVScreen(
         }
     }
 }
-
-//@Preview
-//@Composable
-//fun PreviewCekUV() {
-//    CekUVScreen()
-//}

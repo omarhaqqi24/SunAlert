@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "449610124020",
+    "project_id": "sunalert-2076c",
+    "storage_bucket": "sunalert-2076c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:449610124020:android:7b45b79a77257e39f7aca1",
+        "android_client_info": {
+          "package_name": "com.example.sunalert"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDHhawEglCOE2ceQosyzkCqpyCIB5N6hlo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -36,6 +36,7 @@ import androidx.compose.ui.zIndex
 import androidx.navigation.NavHostController
 import com.example.sunalert.R
 import com.google.android.gms.location.FusedLocationProviderClient
+import com.example.sunalert.Destinations
 
 val poppins = FontFamily(
     Font(R.font.poppins_light, FontWeight.Light),
@@ -126,7 +127,9 @@ fun LandingPage(
             Spacer(modifier = Modifier.height(32.dp))
 
             Button(
-                onClick = {},
+                onClick = {
+                    navController.navigate(Destinations.HISTORY)
+                },
                 colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
                 modifier = Modifier
                     .fillMaxWidth()
