@@ -8,18 +8,22 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -44,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
 import com.example.sunalert.HistoryEntity
 import com.example.sunalert.HistoryViewModel
 import com.example.sunalert.HistoryViewModelFactory
@@ -51,6 +56,7 @@ import com.example.sunalert.LocationState
 import com.example.sunalert.LocationViewModel
 import com.example.sunalert.R
 import com.example.sunalert.UVViewModel
+import androidx.compose.foundation.layout.Arrangement
 import com.google.android.gms.location.FusedLocationProviderClient
 
 data class UvRiskInfo(
@@ -106,12 +112,12 @@ fun getUvRiskInfo(uv: Double?): UvRiskInfo {
 fun CekUVScreen(
     fusedLocationClient: FusedLocationProviderClient,
     viewModel: LocationViewModel = viewModel(),
-    viewModelUV: UVViewModel = viewModel()
+    viewModelUV: UVViewModel = viewModel(),
+    navController: NavHostController? = null
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as Application
 
-    // HistoryViewModel untuk menyimpan riwayat
     val historyViewModel: HistoryViewModel = viewModel(
         factory = HistoryViewModelFactory(app)
     )
@@ -129,7 +135,6 @@ fun CekUVScreen(
             }
         }
 
-        // Minta izin lokasi saat pertama kali masuk screen
         LaunchedEffect(Unit) {
             val permission = Manifest.permission.ACCESS_FINE_LOCATION
             when {
@@ -148,7 +153,6 @@ fun CekUVScreen(
         val uvValue = viewModelUV.UVIndex.value
         val address = viewModel.addressResult.value
 
-        // ========= AUTO-SAVE HISTORY =========
         var lastSavedUv by remember { mutableStateOf<Double?>(null) }
 
         LaunchedEffect(uvValue, state) {
@@ -168,7 +172,7 @@ fun CekUVScreen(
                     uvIndex = uvValue,
                     kategoriRisiko = uvInfo.label,
                     rekomendasi = uvInfo.advice,
-                    fotoUri = "",   // nanti diisi URI foto SkyCheck
+                    fotoUri = "",
                     note = null
                 )
 
@@ -176,7 +180,6 @@ fun CekUVScreen(
                 lastSavedUv = uvValue
             }
         }
-        // =====================================
 
         Image(
             painter = painterResource(id = R.drawable.background),
@@ -210,7 +213,6 @@ fun CekUVScreen(
                     is LocationState.Success -> {
                         val lat = state.location.latitude
                         val lng = state.location.longitude
-                        // trigger fetch UV ketika lokasi berhasil
                         viewModelUV.fetchUV(lat, lng)
                         "lat: ${lat}, long: ${lng}\n$address"
                     }
@@ -291,7 +293,6 @@ fun CekUVScreen(
 
             Button(
                 onClick = {
-                    // user bisa klik untuk re-check lokasi/uv
                     locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
@@ -316,6 +317,64 @@ fun CekUVScreen(
                     fontSize = 32.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color.White
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            if (navController != null) {
+                SkyCheckButton(navController = navController)
+            }
+        }
+    }
+}
+
+@Composable
+fun SkyCheckButton(navController: NavHostController) {
+    Button(
+        onClick = { navController.navigate("skycheck") },
+        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(90.dp)
+            .shadow(12.dp, RoundedCornerShape(16.dp))
+            .background(
+                Color(0xFFF3C94B),
+                shape = RoundedCornerShape(16.dp)
+            ),
+        shape = RoundedCornerShape(16.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Start,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            val imgRes = runCatching { R.drawable.img }.getOrElse { 0 }
+            if (imgRes != 0) {
+                Image(
+                    painter = painterResource(id = imgRes),
+                    contentDescription = null,
+                    modifier = Modifier.size(52.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(
+                horizontalAlignment = Alignment.Start
+            ) {
+                Text(
+                    "SkyCheck",
+                    fontFamily = poppins,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
+                )
+                Text(
+                    "Potret langit untuk dokumentasi",
+                    fontFamily = poppins,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF4D2412)
                 )
             }
         }
