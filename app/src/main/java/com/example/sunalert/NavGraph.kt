@@ -7,6 +7,7 @@ import androidx.navigation.compose.composable
 import com.example.sunalert.ui.CekUVScreen
 import com.example.sunalert.ui.LandingPage
 import com.example.sunalert.ui.HistoryScreen
+import com.example.sunalert.ui.SkyCheckScreen
 import com.google.android.gms.location.FusedLocationProviderClient
 
 object Destinations {
@@ -24,10 +25,13 @@ fun NavGraph(navController: NavHostController, fusedLocationClient: FusedLocatio
             LandingPage(navController, fusedLocationClient)
         }
         composable(Destinations.CEKUV) {
-            CekUVScreen(fusedLocationClient)
+            CekUVScreen(fusedLocationClient, navController = navController)
         }
         composable(Destinations.HISTORY) {
             HistoryScreen()
+        }
+        composable("skycheck") {
+            SkyCheckScreen(navBack = { navController.popBackStack() })
         }
     }
 }

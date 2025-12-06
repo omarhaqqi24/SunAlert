@@ -8,10 +8,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="PLACEHOLDER" />
-                  <option name="mobileSdkAppId" value="" />
-                  <option name="projectId" value="" />
-                  <option name="projectNumber" value="" />
+                  <option name="appId" value="com.example.sunalert" />
+                  <option name="mobileSdkAppId" value="1:449610124020:android:7b45b79a77257e39f7aca1" />
+                  <option name="projectId" value="sunalert-2076c" />
+                  <option name="projectNumber" value="449610124020" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />
