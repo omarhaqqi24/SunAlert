@@ -1,11 +1,15 @@
 package com.example.sunalert.ui
 
 import android.Manifest
+import android.content.ContentValues
 import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
+import android.provider.MediaStore
 import android.util.Log
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.Camera
@@ -36,7 +40,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import coil.compose.rememberAsyncImagePainter
 import com.example.sunalert.R
-import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -87,7 +90,7 @@ fun SkyCheckScreen(navBack: (() -> Unit)? = null) {
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                androidx.compose.material3.Text("Permission kamera diperlukan", color = Color.White)
+                androidx.compose.material3.Text("Permission kamera diperlukan!", color = Color.White)
                 Spacer(modifier = Modifier.height(8.dp))
                 androidx.compose.material3.Button(onClick = {
                     permissionLauncher.launch(Manifest.permission.CAMERA)
@@ -191,28 +194,10 @@ fun SkyCheckScreen(navBack: (() -> Unit)? = null) {
                     .background(Color.White, shape = CircleShape)
                     .clickable {
                         imageCapture?.let { capture ->
-                            val photoFile = File(
-                                context.getExternalFilesDir(null),
-                                SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
-                                    .format(System.currentTimeMillis()) + ".jpg"
-                            )
-
-                            val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
-
-                            capture.takePicture(
-                                outputOptions,
-                                ContextCompat.getMainExecutor(context),
-                                object : ImageCapture.OnImageSavedCallback {
-                                    override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                                        lastCapturedImageUri = Uri.fromFile(photoFile)
-                                        Log.d("SkyCheck", "Photo saved: ${photoFile.absolutePath}")
-                                    }
-
-                                    override fun onError(exc: ImageCaptureException) {
-                                        Log.e("SkyCheck", "Photo capture failed: ${exc.message}", exc)
-                                    }
-                                }
-                            )
+                            savePhotoToGallery(context, capture) { uri ->
+                                lastCapturedImageUri = uri
+                                Toast.makeText(context, "Foto berhasil disimpan!", Toast.LENGTH_SHORT).show()
+                            }
                         }
                     },
                 contentAlignment = Alignment.Center
@@ -245,6 +230,48 @@ fun SkyCheckScreen(navBack: (() -> Unit)? = null) {
             }
         }
     }
+}
+
+fun savePhotoToGallery(
+    context: Context,
+    imageCapture: ImageCapture,
+    onImageSaved: (Uri) -> Unit
+) {
+    val name = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
+        .format(System.currentTimeMillis())
+
+    val contentValues = ContentValues().apply {
+        put(MediaStore.MediaColumns.DISPLAY_NAME, "SkyCheck_$name")
+        put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
+            put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/SunAlert")
+        }
+    }
+
+    val outputOptions = ImageCapture.OutputFileOptions
+        .Builder(
+            context.contentResolver,
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            contentValues
+        )
+        .build()
+
+    imageCapture.takePicture(
+        outputOptions,
+        ContextCompat.getMainExecutor(context),
+        object : ImageCapture.OnImageSavedCallback {
+            override fun onError(exc: ImageCaptureException) {
+                Log.e("SkyCheck", "Photo capture failed: ${exc.message}", exc)
+                Toast.makeText(context, "Gagal menyimpan foto", Toast.LENGTH_SHORT).show()
+            }
+
+            override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                val savedUri = output.savedUri ?: return
+                Log.d("SkyCheck", "Photo saved: $savedUri")
+                onImageSaved(savedUri)
+            }
+        }
+    )
 }
 
 @Composable
