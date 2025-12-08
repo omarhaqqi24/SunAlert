@@ -2,7 +2,6 @@ package com.example.sunalert.ui
 
 import android.app.Application
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -149,6 +148,7 @@ fun HistoryItem(
                 Text("UV ${item.uvIndex}", fontWeight = FontWeight.Bold)
                 Text(item.alamat, maxLines = 1, style = MaterialTheme.typography.bodySmall)
                 Text(date, color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+//                Text("Foto URI: ${item.fotoUri}")
 
                 Spacer(Modifier.height(4.dp))
 

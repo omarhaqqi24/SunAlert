@@ -7,8 +7,11 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 class HistoryViewModel(application: Application) : AndroidViewModel(application) {
+
+    var lastHistoryId: Long? = null
 
     private val db = SunAlertDatabase.getInstance(application)
     private val repository = HistoryRepository(
@@ -29,9 +32,23 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch { repository.syncPending() }
     }
 
-    fun insertHistory(history: HistoryEntity) {
+    fun getHistoryById(id: Long): HistoryEntity? {
+        return runBlocking {
+            repository.getHistoryById(id)
+        }
+    }
+
+    fun insertHistory(history: HistoryEntity, onResult: (Long) -> Unit) {
         viewModelScope.launch {
-            repository.insertHistory(history)
+            val id = repository.insertHistory(history)
+            lastHistoryId = id
+            onResult(id)
+        }
+    }
+
+    fun updatePhoto(id: Long, fotoUri: String) {
+        viewModelScope.launch {
+            repository.updateHistoryPhoto(id, fotoUri)
         }
     }
 

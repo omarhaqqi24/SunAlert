@@ -16,7 +16,9 @@ class HistoryRepository(
 
     fun getAllHistory(): Flow<List<HistoryEntity>> = dao.getAllHistory()
 
-    suspend fun insertHistory(history: HistoryEntity) {
+    suspend fun getHistoryById(id: Long): HistoryEntity? = dao.getHistoryById(id)
+
+    suspend fun insertHistory(history: HistoryEntity): Long {
         // Simpan ke Room dulu
         val newId = dao.insertHistory(history)
 
@@ -26,6 +28,12 @@ class HistoryRepository(
         } catch (_: Exception) {
             // Kalau gagal, nanti sync ulang
         }
+
+        return newId
+    }
+
+    suspend fun updateHistoryPhoto(id: Long, fotoUri: String) {
+        dao.updatePhoto(id, fotoUri)
     }
 
     suspend fun deleteHistory(history: HistoryEntity) {

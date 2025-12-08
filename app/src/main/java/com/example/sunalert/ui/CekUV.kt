@@ -2,13 +2,12 @@ package com.example.sunalert.ui
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.app.Application
 import android.content.pm.PackageManager
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -23,13 +22,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,12 +49,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.sunalert.HistoryEntity
 import com.example.sunalert.HistoryViewModel
-import com.example.sunalert.HistoryViewModelFactory
 import com.example.sunalert.LocationState
 import com.example.sunalert.LocationViewModel
 import com.example.sunalert.R
 import com.example.sunalert.UVViewModel
 import androidx.compose.foundation.layout.Arrangement
+import com.example.sunalert.SharedHistoryViewModel
 import com.google.android.gms.location.FusedLocationProviderClient
 
 data class UvRiskInfo(
@@ -113,74 +111,44 @@ fun CekUVScreen(
     fusedLocationClient: FusedLocationProviderClient,
     viewModel: LocationViewModel = viewModel(),
     viewModelUV: UVViewModel = viewModel(),
-    navController: NavHostController? = null
+    navController: NavHostController? = null,
+    historyViewModel: HistoryViewModel,
+    sharedHistoryVM: SharedHistoryViewModel
 ) {
     val context = LocalContext.current
-    val app = context.applicationContext as Application
 
-    val historyViewModel: HistoryViewModel = viewModel(
-        factory = HistoryViewModelFactory(app)
-    )
+    // States controlling flow
+    var showResult by remember { mutableStateOf(false) }
+    var isChecking by remember { mutableStateOf(false) }
 
-    Box(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        val locationPermissionLauncher = rememberLauncherForActivityResult(
-            ActivityResultContracts.RequestPermission()
-        ) { isGranted: Boolean ->
-            if (isGranted) {
-                viewModel.startLocationFetch(fusedLocationClient)
-            } else {
-                viewModel.updateLocationStateToError("Izin lokasi diperlukan untuk melanjutkan")
-            }
+    // permission launcher
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            Log.d("CekUV", "Permission granted, starting location fetch")
+            viewModel.startLocationFetch(fusedLocationClient)
+        } else {
+            Log.d("CekUV", "Permission denied")
+            viewModel.updateLocationStateToError("Izin lokasi diperlukan untuk melanjutkan")
         }
+    }
 
-        LaunchedEffect(Unit) {
-            val permission = Manifest.permission.ACCESS_FINE_LOCATION
-            when {
-                ContextCompat.checkSelfPermission(context, permission) ==
-                        PackageManager.PERMISSION_GRANTED -> {
-                    viewModel.startLocationFetch(fusedLocationClient)
-                }
-
-                else -> {
-                    locationPermissionLauncher.launch(permission)
-                }
-            }
+    // ask permission on first composition if not granted
+    LaunchedEffect(Unit) {
+        val permission = Manifest.permission.ACCESS_FINE_LOCATION
+        if (ContextCompat.checkSelfPermission(context, permission)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            locationPermissionLauncher.launch(permission)
         }
+    }
 
-        val state = viewModel.locationState.value
-        val uvValue = viewModelUV.UVIndex.value
-        val address = viewModel.addressResult.value
+    val state = viewModel.locationState.value
+    val uvValue = viewModelUV.UVIndex.value
+    val address = viewModel.addressResult.value
 
-        var lastSavedUv by remember { mutableStateOf<Double?>(null) }
-
-        LaunchedEffect(uvValue, state) {
-            if (uvValue != null &&
-                uvValue != lastSavedUv &&
-                state is LocationState.Success
-            ) {
-                val lat = state.location.latitude
-                val lng = state.location.longitude
-                val uvInfo = getUvRiskInfo(uvValue)
-
-                val history = HistoryEntity(
-                    timestamp = System.currentTimeMillis(),
-                    latitude = lat,
-                    longitude = lng,
-                    alamat = address,
-                    uvIndex = uvValue,
-                    kategoriRisiko = uvInfo.label,
-                    rekomendasi = uvInfo.advice,
-                    fotoUri = "",
-                    note = null
-                )
-
-                historyViewModel.insertHistory(history)
-                lastSavedUv = uvValue
-            }
-        }
-
+    Box(modifier = Modifier.fillMaxSize()) {
         Image(
             painter = painterResource(id = R.drawable.background),
             contentDescription = null,
@@ -207,18 +175,22 @@ fun CekUVScreen(
                 modifier = Modifier.size(120.dp)
             )
 
+            // Status text: show progress / location / error depending on states
             Text(
-                text = when (state) {
-                    is LocationState.Loading -> "Memuat Data..."
-                    is LocationState.Success -> {
+                text = when {
+                    isChecking && state is LocationState.Loading -> "Memuat Data Lokasi..."
+                    isChecking && state is LocationState.Success -> {
                         val lat = state.location.latitude
                         val lng = state.location.longitude
-                        viewModelUV.fetchUV(lat, lng)
-                        "lat: ${lat}, long: ${lng}\n$address"
+                        "lat: ${lat}, long: ${lng}\n${address}"
                     }
-
-                    is LocationState.Error -> "Gagal: ${state.message}"
-                    else -> "Menunggu Izin"
+                    state is LocationState.Success -> {
+                        val lat = state.location.latitude
+                        val lng = state.location.longitude
+                        "lat: ${lat}, long: ${lng}\n${address}"
+                    }
+                    state is LocationState.Error -> "Gagal: ${state.message}"
+                    else -> "Tekan tombol untuk cek UV"
                 },
                 fontFamily = poppins,
                 fontSize = 14.sp,
@@ -229,6 +201,7 @@ fun CekUVScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
+            // Big UV number
             Text(
                 text = when (val uv = uvValue) {
                     null -> "--"
@@ -242,31 +215,35 @@ fun CekUVScreen(
 
             Spacer(modifier = Modifier.height(5.dp))
 
-            val uvInfo = getUvRiskInfo(uvValue)
+            val uvInfo = if (showResult) getUvRiskInfo(uvValue) else null
 
-            Text(
-                textAlign = TextAlign.Center,
-                fontWeight = FontWeight.SemiBold,
-                lineHeight = 24.sp,
-                text = buildAnnotatedString {
-                    withStyle(
-                        style = SpanStyle(
-                            color = uvInfo.color,
-                            fontSize = 16.sp
-                        )
-                    ) {
-                        append(uvInfo.label)
+            if (uvInfo != null) {
+                Text(
+                    textAlign = TextAlign.Center,
+                    fontWeight = FontWeight.SemiBold,
+                    lineHeight = 24.sp,
+                    text = buildAnnotatedString {
+                        withStyle(
+                            style = SpanStyle(
+                                color = uvInfo.color,
+                                fontSize = 16.sp
+                            )
+                        ) {
+                            append(uvInfo.label)
+                        }
+                        withStyle(
+                            style = SpanStyle(
+                                color = Color.White,
+                                fontSize = 12.sp
+                            )
+                        ) {
+                            append("\nUV Index Saat Ini")
+                        }
                     }
-                    withStyle(
-                        style = SpanStyle(
-                            color = Color.White,
-                            fontSize = 12.sp
-                        )
-                    ) {
-                        append("\nUV Index Saat Ini")
-                    }
-                }
-            )
+                )
+            } else {
+                Text("Belum ada data.", color = Color.White)
+            }
 
             Spacer(modifier = Modifier.height(20.dp))
 
@@ -280,7 +257,7 @@ fun CekUVScreen(
                     .padding(12.dp),
             ) {
                 Text(
-                    text = uvInfo.advice,
+                    text = uvInfo?.advice ?: "Belum ada data.",
                     fontFamily = poppins,
                     fontSize = 16.sp,
                     lineHeight = 20.sp,
@@ -291,9 +268,21 @@ fun CekUVScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            // BUTTON: start the checking flow (async handled by LaunchedEffect listeners)
             Button(
                 onClick = {
-                    locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                    val permission = Manifest.permission.ACCESS_FINE_LOCATION
+                    if (ContextCompat.checkSelfPermission(context, permission)
+                        != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        locationPermissionLauncher.launch(permission)
+                        return@Button
+                    }
+
+                    Log.d("CekUV", "Tombol Cek UV diklik — mulai proses")
+                    isChecking = true
+                    showResult = false
+                    viewModel.startLocationFetch(fusedLocationClient)
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
                 modifier = Modifier
@@ -324,6 +313,64 @@ fun CekUVScreen(
 
             if (navController != null) {
                 SkyCheckButton(navController = navController)
+            }
+        }
+    }
+
+    // EFFECT: when location becomes Success while we are checking -> fetch UV
+    LaunchedEffect(state, isChecking) {
+        if (isChecking) {
+            when (state) {
+                is LocationState.Success -> {
+                    val lat = state.location.latitude
+                    val lng = state.location.longitude
+                    Log.d("CekUV", "Lokasi sukses — memanggil fetchUV($lat, $lng)")
+                    viewModelUV.fetchUV(lat, lng)
+                }
+                is LocationState.Error -> {
+                    Log.d("CekUV", "Lokasi error: ${state.message}")
+                    // you may want to set isChecking = false here if you don't want retries
+                }
+                is LocationState.Loading -> {
+                    // still waiting
+                }
+                else -> {}
+            }
+        }
+    }
+
+    // EFFECT: when UV value is available while we are checking -> save history & show result
+    LaunchedEffect(uvValue, isChecking) {
+        if (isChecking && uvValue != null) {
+            val s = viewModel.locationState.value
+            if (s is LocationState.Success) {
+                val lat = s.location.latitude
+                val lng = s.location.longitude
+                val uv = uvValue
+                val uvInfoLocal = getUvRiskInfo(uv)
+
+                val history = HistoryEntity(
+                    timestamp = System.currentTimeMillis(),
+                    latitude = lat,
+                    longitude = lng,
+                    alamat = viewModel.addressResult.value,
+                    uvIndex = uv,
+                    kategoriRisiko = uvInfoLocal.label,
+                    rekomendasi = uvInfoLocal.advice,
+                    fotoUri = "",
+                    note = null
+                )
+
+                Log.d("CekUV", "Menyimpan history uv=$uv")
+                historyViewModel.insertHistory(history) { newId ->
+                    sharedHistoryVM.lastHistoryId = newId
+                    Log.d("CekUV", "History disimpan id=$newId")
+                }
+
+                showResult = true
+                isChecking = false
+            } else {
+                Log.d("CekUV", "UV tersedia, tapi lokasi bukan Success — tidak menyimpan")
             }
         }
     }

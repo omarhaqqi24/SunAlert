@@ -16,7 +16,8 @@ class UVViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 val response = APIClient.api.getUV(
-                    apiKey = "openuv-1vaqrmicfh1nd-io",
+//                    apiKey = "openuv-1vaqrmicfh1nd-io",
+                    apiKey = "openuv-4uokrmiahlpz5-io",
                     lat = lat,
                     lng = lng
                 )

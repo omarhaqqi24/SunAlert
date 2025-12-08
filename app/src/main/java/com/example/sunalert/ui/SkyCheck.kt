@@ -39,12 +39,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import coil.compose.rememberAsyncImagePainter
+import com.example.sunalert.HistoryViewModel
 import com.example.sunalert.R
+import com.example.sunalert.SharedHistoryViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
 @Composable
-fun SkyCheckScreen(navBack: (() -> Unit)? = null) {
+fun SkyCheckScreen(
+    navBack: (() -> Unit)? = null,
+    historyViewModel: HistoryViewModel,
+    sharedHistoryVM: SharedHistoryViewModel
+) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -78,7 +84,6 @@ fun SkyCheckScreen(navBack: (() -> Unit)? = null) {
             CameraPreviewView(
                 modifier = Modifier.fillMaxSize(),
                 lifecycleOwner = lifecycleOwner,
-                context = context,
                 onImageCaptureReady = { capture, cam ->
                     imageCapture = capture
                     camera = cam
@@ -194,10 +199,16 @@ fun SkyCheckScreen(navBack: (() -> Unit)? = null) {
                     .background(Color.White, shape = CircleShape)
                     .clickable {
                         imageCapture?.let { capture ->
-                            savePhotoToGallery(context, capture) { uri ->
+                            savePhotoToGallery(
+                                context = context,
+                                imageCapture = capture,
+                                historyViewModel = historyViewModel,
+                                sharedHistoryVM = sharedHistoryVM
+                            ) { uri ->
                                 lastCapturedImageUri = uri
                                 Toast.makeText(context, "Foto berhasil disimpan!", Toast.LENGTH_SHORT).show()
                             }
+
                         }
                     },
                 contentAlignment = Alignment.Center
@@ -235,6 +246,8 @@ fun SkyCheckScreen(navBack: (() -> Unit)? = null) {
 fun savePhotoToGallery(
     context: Context,
     imageCapture: ImageCapture,
+    historyViewModel: HistoryViewModel,
+    sharedHistoryVM: SharedHistoryViewModel,
     onImageSaved: (Uri) -> Unit
 ) {
     val name = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
@@ -267,7 +280,15 @@ fun savePhotoToGallery(
 
             override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                 val savedUri = output.savedUri ?: return
+                val lastId = sharedHistoryVM.lastHistoryId
+
+                if (lastId != null) {
+                    historyViewModel.updatePhoto(lastId, savedUri.toString())
+                }
+
                 Log.d("SkyCheck", "Photo saved: $savedUri")
+                Log.d("DEBUG_SKYCHECK", "lastHistoryId = ${sharedHistoryVM.lastHistoryId}")
+                Log.d("DEBUG_SKYCHECK", "saved uri = $savedUri")
                 onImageSaved(savedUri)
             }
         }
@@ -278,7 +299,6 @@ fun savePhotoToGallery(
 fun CameraPreviewView(
     modifier: Modifier = Modifier,
     lifecycleOwner: androidx.lifecycle.LifecycleOwner,
-    context: Context,
     onImageCaptureReady: (ImageCapture, Camera) -> Unit
 ) {
     AndroidView(factory = { ctx ->
