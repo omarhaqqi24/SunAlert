@@ -117,11 +117,9 @@ fun CekUVScreen(
 ) {
     val context = LocalContext.current
 
-    // States controlling flow
     var showResult by remember { mutableStateOf(false) }
     var isChecking by remember { mutableStateOf(false) }
 
-    // permission launcher
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
@@ -133,8 +131,6 @@ fun CekUVScreen(
             viewModel.updateLocationStateToError("Izin lokasi diperlukan untuk melanjutkan")
         }
     }
-
-    // ask permission on first composition if not granted
     LaunchedEffect(Unit) {
         val permission = Manifest.permission.ACCESS_FINE_LOCATION
         if (ContextCompat.checkSelfPermission(context, permission)
@@ -175,7 +171,6 @@ fun CekUVScreen(
                 modifier = Modifier.size(120.dp)
             )
 
-            // Status text: show progress / location / error depending on states
             Text(
                 text = when {
                     isChecking && state is LocationState.Loading -> "Memuat Data Lokasi..."
@@ -201,7 +196,6 @@ fun CekUVScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Big UV number
             Text(
                 text = when (val uv = uvValue) {
                     null -> "--"
@@ -209,7 +203,7 @@ fun CekUVScreen(
                 },
                 fontFamily = poppins,
                 fontWeight = FontWeight.Bold,
-                fontSize = 180.sp,
+                fontSize = if (uvValue != null && uvValue > 10) 150.sp else 180.sp,
                 color = Color.White
             )
 
@@ -268,7 +262,6 @@ fun CekUVScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // BUTTON: start the checking flow (async handled by LaunchedEffect listeners)
             Button(
                 onClick = {
                     val permission = Manifest.permission.ACCESS_FINE_LOCATION
@@ -317,7 +310,6 @@ fun CekUVScreen(
         }
     }
 
-    // EFFECT: when location becomes Success while we are checking -> fetch UV
     LaunchedEffect(state, isChecking) {
         if (isChecking) {
             when (state) {
@@ -329,7 +321,6 @@ fun CekUVScreen(
                 }
                 is LocationState.Error -> {
                     Log.d("CekUV", "Lokasi error: ${state.message}")
-                    // you may want to set isChecking = false here if you don't want retries
                 }
                 is LocationState.Loading -> {
                     // still waiting
@@ -339,7 +330,6 @@ fun CekUVScreen(
         }
     }
 
-    // EFFECT: when UV value is available while we are checking -> save history & show result
     LaunchedEffect(uvValue, isChecking) {
         if (isChecking && uvValue != null) {
             val s = viewModel.locationState.value

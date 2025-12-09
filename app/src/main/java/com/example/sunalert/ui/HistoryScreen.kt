@@ -87,7 +87,7 @@ fun HistoryScreen() {
                 text = { Text("Are you sure you want to delete this item?") },
                 confirmButton = {
                     TextButton(onClick = {
-                        viewModel.deleteHistory(selectedItem!!)
+                        selectedItem?.let { viewModel.deleteHistory(it) }
                         showDeleteDialog = false
                     }) {
                         Text("Delete", color = Color.Red)

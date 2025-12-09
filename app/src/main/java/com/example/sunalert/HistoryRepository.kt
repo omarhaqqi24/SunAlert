@@ -16,8 +16,6 @@ class HistoryRepository(
 
     fun getAllHistory(): Flow<List<HistoryEntity>> = dao.getAllHistory()
 
-    suspend fun getHistoryById(id: Long): HistoryEntity? = dao.getHistoryById(id)
-
     suspend fun insertHistory(history: HistoryEntity): Long {
         // Simpan ke Room dulu
         val newId = dao.insertHistory(history)
@@ -36,16 +34,28 @@ class HistoryRepository(
         dao.updatePhoto(id, fotoUri)
     }
 
-    suspend fun deleteHistory(history: HistoryEntity) {
-        // Hapus di Firebase (best effort)
+    suspend fun deleteHistoryById(id: Long) {
         try {
             firestore.collection("history")
-                .document(history.id.toString())
+                .document(id.toString())
                 .delete()
                 .await()
         } catch (_: Exception) { }
 
-        dao.deleteById(history.id)
+        dao.deleteById(id)
+    }
+
+    suspend fun deleteById(id: Long) {
+        dao.deleteById(id)
+    }
+
+    suspend fun deleteFromFirebase(id: Long) {
+        try {
+            firestore.collection("history")
+                .document(id.toString())
+                .delete()
+                .await()
+        } catch (_: Exception) { }
     }
 
     suspend fun deleteAllHistory() {

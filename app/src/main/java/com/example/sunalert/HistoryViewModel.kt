@@ -32,12 +32,6 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch { repository.syncPending() }
     }
 
-    fun getHistoryById(id: Long): HistoryEntity? {
-        return runBlocking {
-            repository.getHistoryById(id)
-        }
-    }
-
     fun insertHistory(history: HistoryEntity, onResult: (Long) -> Unit) {
         viewModelScope.launch {
             val id = repository.insertHistory(history)
@@ -54,7 +48,19 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
 
     fun deleteHistory(item: HistoryEntity) {
         viewModelScope.launch {
-            repository.deleteHistory(item)
+            // delete lokal dulu supaya UI langsung refresh
+            repository.deleteById(item.id)
+
+            // delete di Firebase (best-effort, tidak blocking UI)
+            try {
+                repository.deleteFromFirebase(item.id)
+            } catch (_: Exception) { }
+        }
+    }
+
+    fun deleteHistoryById(id: Long) {
+        viewModelScope.launch {
+            repository.deleteHistoryById(id)
         }
     }
 
